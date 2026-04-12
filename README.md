@@ -13,8 +13,28 @@ Pre-converted TurboQuant-compressed model weights for [turboquant-mlx-core](http
 
 ## Convert Your Own
 
+### From HuggingFace
+
 ```bash
-# Install turboquant-mlx-core
+# Setup
+pip install huggingface_hub mlx-lm
+
+# Convert from HuggingFace model name
+python scripts/convert_from_hf.py Qwen/Qwen2.5-Coder-3B
+
+# Convert from Ollama model name (downloads fp16 from HuggingFace)
+python scripts/convert_from_hf.py qwen2.5-coder:3b
+
+# Custom output and settings
+python scripts/convert_from_hf.py Qwen/Qwen3-32B \
+  --output ./converted/Qwen3-32B-TQ8 \
+  --bits 4 --residual-bits 4
+```
+
+### Direct conversion (local safetensors)
+
+```bash
+# Build tq-convert
 brew install cmake mlx
 git clone https://github.com/ekovshilovsky/turboquant-mlx-core
 cd turboquant-mlx-core && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
@@ -25,6 +45,20 @@ cd turboquant-mlx-core && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --b
 # Validate
 python scripts/validate.py --model /path/to/model-tq8
 ```
+
+### Supported Ollama models
+
+The converter maps Ollama model names to their HuggingFace fp16 source
+repositories automatically. This avoids double quantization error from
+converting Ollama's pre-quantized GGUF files.
+
+| Ollama | HuggingFace Source |
+|---|---|
+| `qwen2.5-coder:3b` | `Qwen/Qwen2.5-Coder-3B` |
+| `qwen2.5-coder:7b` | `Qwen/Qwen2.5-Coder-7B` |
+| `gemma3:4b` | `google/gemma-3-4b-pt` |
+| `gemma3:27b` | `google/gemma-3-27b-pt` |
+| `qwen3:32b` | `Qwen/Qwen3-32B` |
 
 ## License
 
