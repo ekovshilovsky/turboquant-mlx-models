@@ -1,0 +1,14 @@
+# Model weights (stored on HuggingFace, not in git)
+*.safetensors
+*.bin
+*.gguf
+*.pt
+*.onnx
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
