@@ -1,0 +1,56 @@
+name: Publish to HuggingFace
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_name:
+        description: 'Model name (e.g., Qwen2.5-Coder-3B-TQ8)'
+        required: true
+        type: string
+      model_path:
+        description: 'Local path to converted model directory'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install HuggingFace CLI
+        run: pip install huggingface_hub
+
+      - name: Validate TQ metadata
+        env:
+          MODEL_PATH: ${{ inputs.model_path }}
+        run: python scripts/validate.py --model "$MODEL_PATH"
+
+      - name: Upload to HuggingFace
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODEL_NAME: ${{ inputs.model_name }}
+          MODEL_PATH: ${{ inputs.model_path }}
+        run: |
+          huggingface-cli upload \
+            "ekovshilovsky/$MODEL_NAME" \
+            "$MODEL_PATH" \
+            --token "$HF_TOKEN"
+
+      - name: Copy model card
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODEL_NAME: ${{ inputs.model_name }}
+        run: |
+          CARD="model-cards/$MODEL_NAME.md"
+          if [ -f "$CARD" ]; then
+            huggingface-cli upload \
+              "ekovshilovsky/$MODEL_NAME" \
+              "$CARD" "README.md" \
+              --token "$HF_TOKEN"
+          fi
