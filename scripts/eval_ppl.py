@@ -195,9 +195,15 @@ def dequant_tq_to_fp16(tq_model_path: str, output_path: str) -> None:
             seed_primary = int(seed_data[0])
             seed_residual = int(seed_data[1]) if len(seed_data) > 1 else 0
 
-            block_size = 1
-            while block_size * 2 <= in_features and block_size < 512:
-                block_size *= 2
+            # Read block_size from seeds[2] if present (written by quantizer
+            # since the seeds-stores-block_size change). Fall back to adaptive
+            # computation for legacy models that only stored 2 seed values.
+            if len(seed_data) >= 3:
+                block_size = int(seed_data[2])
+            else:
+                block_size = 1
+                while block_size * 2 <= in_features and block_size < 512:
+                    block_size *= 2
 
             pp_data = packed_p.astype(mx.uint8).tolist()
             pr_data = packed_r.astype(mx.uint8).tolist() if packed_r is not None else None
