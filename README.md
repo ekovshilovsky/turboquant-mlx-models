@@ -28,21 +28,26 @@ Key findings:
 - Hybrid architectures quantize 6x better than dense at same scale
 - Coder/instruct models quantize significantly better than base models
 
-## Optimal Conversion Config
+## Conversion
+
+The tool ships with release-quality defaults — `--sensitive-layers 4` and
+`--per-layer-codebooks` are on by default and need no opt-in:
 
 ```bash
-tq-convert --model /path/to/model \
-  --sensitive-layers 4 \
-  --per-layer-codebooks \
-  --bits 4 --residual-bits 4
+tq-convert --model /path/to/model
+# → /path/to/model-TQ8-TP2
 ```
 
-- `--sensitive-layers 4`: Keep first/last 4 layers at fp16 (30% delta reduction)
-- `--per-layer-codebooks`: Fit codebooks to each layer's distribution (biggest quality win)
-- Shared rotation enabled by default (single WHT pass at inference)
+For development smoke tests, `--draft` flips both quality flags off (~30x
+faster, 10–20x worse perplexity delta — do not ship draft snapshots):
 
-Conversion time: ~4 hours for 27-32B models (per-layer Lloyd-Max fitting).
-Runtime inference: identical speed regardless of codebook type.
+```bash
+tq-convert --model /path/to/model --draft
+```
+
+Conversion time: ~4 hours for 27-32B models in the default mode (per-layer
+Lloyd-Max fitting dominates). Runtime inference speed is identical regardless
+of conversion mode.
 
 ## Deferred Models
 
@@ -60,9 +65,8 @@ Runtime inference: identical speed regardless of codebook type.
 # Setup
 pip install huggingface_hub mlx-lm
 
-# Convert with optimal settings
-python scripts/convert_from_hf.py Qwen/Qwen3.5-27B \
-  --output ./converted/Qwen3.5-27B-TQ8
+# Production-quality defaults; output dir is auto-suffixed -TQ8-TP{N}.
+python scripts/convert_from_hf.py Qwen/Qwen3.5-27B
 
 # From Ollama model name (downloads fp16 from HuggingFace)
 python scripts/convert_from_hf.py qwen2.5-coder:3b
@@ -76,13 +80,11 @@ brew install cmake mlx
 git clone https://github.com/ekovshilovsky/turboquant-mlx-core
 cd turboquant-mlx-core && cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
 
-# Convert with full optimizations
-./build/tq-convert --model /path/to/model \
-  --sensitive-layers 4 --per-layer-codebooks \
-  --bits 4 --residual-bits 4
+# Production-quality defaults; output dir is auto-suffixed -TQ8-TP2.
+./build/tq-convert --model /path/to/model
 
 # Validate
-python scripts/validate.py --model /path/to/model-tq8
+python scripts/validate.py --model /path/to/model-TQ8-TP2
 ```
 
 ### PPL evaluation

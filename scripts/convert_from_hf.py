@@ -95,10 +95,14 @@ def resolve_ollama_model(model_name: str) -> str | None:
 def main():
     parser = argparse.ArgumentParser(description="Convert model to TurboQuant format")
     parser.add_argument("model", help="HuggingFace model name, local path, or Ollama model (e.g., qwen3:32b)")
-    parser.add_argument("--output", "-o", help="Output directory")
+    parser.add_argument("--output", "-o", help="Output directory (default: auto-derived as <basename>-TQ8-TP{N})")
     parser.add_argument("--bits", type=int, default=4, help="Primary quantization bits (default: 4)")
     parser.add_argument("--residual-bits", type=int, default=4, help="Residual bits (default: 4)")
     parser.add_argument("--block-size", type=int, default=512, help="WHT block size (default: 512)")
+    parser.add_argument("--target-world-size", type=int, default=2,
+                        help="Largest tensor-parallel world size to support (default: 2)")
+    parser.add_argument("--draft", action="store_true",
+                        help="Fast development preset (10-20x worse PPL delta; do not ship)")
     parser.add_argument("--cache-dir", default="/tmp/tq-convert-cache", help="Cache for downloaded models")
     args = parser.parse_args()
 
@@ -135,22 +139,26 @@ def main():
         print(f"ERROR: No .safetensors files found in {model_path}")
         sys.exit(1)
 
-    # Determine output path
-    if args.output:
-        output_path = args.output
-    else:
-        base = Path(model_path).name.replace("_safetensors", "")
-        output_path = f"./converted/{base}-TQ{args.bits}"
-
-    # Run tq-convert
+    # Build the tq-convert command line. When --output is omitted we let
+    # tq-convert derive the path itself (<basename>-TQ8-TP{N} beside the
+    # source) so the suffix encodes the topology capability of the snapshot.
     cmd = [
         tq_convert,
         "--model", model_path,
-        "--output", output_path,
         "--bits", str(args.bits),
         "--residual-bits", str(args.residual_bits),
         "--block-size", str(args.block_size),
+        "--target-world-size", str(args.target_world_size),
     ]
+    if args.draft:
+        cmd.append("--draft")
+    if args.output:
+        cmd.extend(["--output", args.output])
+        output_path = args.output
+    else:
+        base = Path(model_path).name
+        output_path = str(Path(model_path).parent / f"{base}-TQ8-TP{args.target_world_size}")
+
     print(f"\nRunning: {' '.join(cmd)}\n")
     result = subprocess.run(cmd)
 
